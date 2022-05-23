@@ -10,8 +10,9 @@ type Options struct {
 	Width, Height int
 }
 
-type CallbackFrame func(pix uint8)
+type CallbackFrame func(pix []uint8, time uint64)
 
+var callbackFrameWriter func([]uint8, uint64)
 var isStarted bool = false
 
 func (r *DisplayRect) AspectRationByWidth(w int) (width, height int) {
@@ -23,11 +24,18 @@ func CaptureStart(cb CallbackFrame, options Options) error {
 		return errors.New("capture in progress now")
 	}
 
+	callbackFrameWriter = cb
+	DisplayCaptureStart(options.Width, options.Height)
 	isStarted = true
 
 	return nil
 }
 
-func StopCapture() {
+func CaptureStop() {
+	DisplayCaptureStop()
 	isStarted = false
+}
+
+func IsStarted() bool {
+	return isStarted
 }

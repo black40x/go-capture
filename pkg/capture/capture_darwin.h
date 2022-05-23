@@ -1,1 +1,1 @@
-extern void ReturnFrame(uint8_t*, int, int);
+extern void ReturnFrame(uint8_t*, uint64_t, int, int);
