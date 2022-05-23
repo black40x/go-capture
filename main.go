@@ -12,9 +12,15 @@ func onReady() {
 	systray.SetIcon(icon)
 	systray.SetTitle("")
 	systray.SetTooltip("Screen video capture")
+	//
+	//mCapture := systray.AddMenuItem("Capture", "")
+	systray.AddSeparator()
+	//mFFmpeg := systray.AddMenuItem("FFmpeg", "")
+	//mFFmpeg.AddSubMenuItemCheckbox()
+	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit", "")
-	mQuit.SetIcon(icon)
 
+	// Actions
 	go func() {
 		for {
 			select {
@@ -31,10 +37,4 @@ func onExit() {
 
 func main() {
 	systray.Run(onReady, onExit)
-	/*
-		rec := capture.GetDisplayRect()
-		capture.CaptureStart(func(pix uint8) {
-			// write pixels
-		}, capture.Options{rec.Width, rec.Height})
-	*/
 }
