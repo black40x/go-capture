@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/black40x/go-capture/pkg/capture"
 	"github.com/getlantern/systray"
+	"os/exec"
+	"runtime"
 	"time"
 )
 
@@ -17,8 +19,6 @@ var iconRecord []byte
 type Application struct {
 	ffmpeg  *FFMpeg
 	display *capture.DisplayRect
-	//
-	fps int
 	// Menus
 	mAbout, mCapture, mQuit               *systray.MenuItem
 	mFFMpeg, mFFMpegInstall, mFFMpegAbout *systray.MenuItem
@@ -29,9 +29,18 @@ func NewApplication() *Application {
 	app := new(Application)
 	app.ffmpeg = NewFFMpeg()
 	app.display = capture.GetDisplayRect()
-	app.fps = 60
-
 	return app
+}
+
+func (a *Application) openURL(url string) {
+	switch runtime.GOOS {
+	case "linux":
+		exec.Command("xdg-open", url).Start()
+	case "windows":
+		exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		exec.Command("open", url).Start()
+	}
 }
 
 func (a *Application) buildMenu() {
@@ -65,19 +74,21 @@ func (a *Application) buildMenu() {
 func (a *Application) handleMenuActions() {
 	for {
 		select {
+		case <-a.mFFMpegInstall.ClickedCh:
+			a.openURL("https://ffmpeg.org/")
 		case <-a.mFFMpegAbout.ClickedCh:
-			fmt.Println("About ffmpeg")
+			a.openURL("https://ffmpeg.org/")
 		case <-a.mAbout.ClickedCh:
-			fmt.Println("About")
+			a.openURL("https://github.com/black40x/go-capture")
 		case <-a.mQuit.ClickedCh:
 			systray.Quit()
 		//
 		case <-a.m60FPS.ClickedCh:
-			a.fps = 60
+			a.ffmpeg.SetFPS(60)
 			a.m60FPS.Check()
 			a.m30FPS.Uncheck()
 		case <-a.m30FPS.ClickedCh:
-			a.fps = 30
+			a.ffmpeg.SetFPS(30)
 			a.m30FPS.Check()
 			a.m60FPS.Uncheck()
 		//
@@ -91,8 +102,6 @@ func (a *Application) handleMenuActions() {
 				a.mCapture.SetTitle("Capture")
 				a.captureStop()
 			}
-		case <-a.mFFMpegInstall.ClickedCh:
-			fmt.Println("GoTo ffmpeg")
 		}
 	}
 }

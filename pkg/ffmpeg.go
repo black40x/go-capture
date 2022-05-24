@@ -20,6 +20,7 @@ const (
 
 type FFMpeg struct {
 	cmd     *exec.Cmd
+	fps     int
 	chWrite chan []uint8
 	buffer  []uint8
 	stdin   io.WriteCloser
@@ -31,7 +32,12 @@ func NewFFMpeg() *FFMpeg {
 	f := new(FFMpeg)
 	f.status = make(chan RecordStatus, 1)
 	f.work = false
+	f.fps = 60
 	return f
+}
+
+func (m *FFMpeg) SetFPS(f int) {
+	m.fps = f
 }
 
 func (m *FFMpeg) Version() (string, error) {
