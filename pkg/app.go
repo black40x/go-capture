@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/black40x/go-capture/pkg/capture"
 	"github.com/getlantern/systray"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -127,7 +128,8 @@ func (a *Application) captureStop() {
 }
 
 func (a *Application) captureStart() error {
-	fn := fmt.Sprintf("ScreenCapture_%s.mov", time.Now().Format("01_01_2006_15_04_05"))
+	c, _ := os.UserHomeDir()
+	fn := fmt.Sprintf("%s/Desktop/ScreenCapture_%s.mov", c, time.Now().Format("01_01_2006_15_04_05"))
 	fmt.Println(fn)
 	err := a.ffmpeg.Record(a.display.Width, a.display.Height, fn)
 	if err != nil {
