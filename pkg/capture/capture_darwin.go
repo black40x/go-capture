@@ -19,7 +19,7 @@ CGDisplayStreamRef CaptureInit(int width, int height) {
 	CGError err = CGGetActiveDisplayList(5, display_ids, &found_displays);
 	CGDisplayStreamRef sref;
 	__block uint64_t prev_time = 0;
-	//
+	// ???
 	void* keys[1];
  	CFNumberRef values[1];
  	CFDictionaryRef opts;
