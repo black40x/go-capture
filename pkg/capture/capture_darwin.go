@@ -19,17 +19,9 @@ CGDisplayStreamRef CaptureInit(int width, int height) {
 	CGError err = CGGetActiveDisplayList(5, display_ids, &found_displays);
 	CGDisplayStreamRef sref;
 	__block uint64_t prev_time = 0;
-	// ???
-	void* keys[1];
- 	CFNumberRef values[1];
- 	CFDictionaryRef opts;
- 	keys[0] = (void *) kCGDisplayStreamMinimumFrameTime;
-	float fr = 0.016;
- 	values[0] = CFNumberCreate(NULL, kCFNumberFloatType, &fr);
- 	opts = CFDictionaryCreate(kCFAllocatorDefault, (const void **) keys, (const void **) values,  1, NULL,  NULL);
-	//
+
 	sref = CGDisplayStreamCreateWithDispatchQueue(
-		display_ids[0], output_width, output_height, pixel_format, opts, dq,
+		display_ids[0], output_width, output_height, pixel_format, NULL, dq,
 		^(CGDisplayStreamFrameStatus status, uint64_t time, IOSurfaceRef frame, CGDisplayStreamUpdateRef ref) {
 			if (kCGDisplayStreamFrameStatusFrameComplete == status && NULL != frame) {
 				IOSurfaceLock(frame, 0x00000001, NULL);
