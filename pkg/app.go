@@ -11,61 +11,98 @@ import (
 //go:embed assets/cam_white.png
 var icon []byte
 
+//go:embed assets/cam_white_record.png
+var iconRecord []byte
+
 type Application struct {
 	ffmpeg  *FFMpeg
 	display *capture.DisplayRect
+	//
+	fps int
+	// Menus
+	mAbout, mCapture, mQuit               *systray.MenuItem
+	mFFMpeg, mFFMpegInstall, mFFMpegAbout *systray.MenuItem
+	mFPS, m60FPS, m30FPS                  *systray.MenuItem
 }
 
 func NewApplication() *Application {
 	app := new(Application)
 	app.ffmpeg = NewFFMpeg()
 	app.display = capture.GetDisplayRect()
+	app.fps = 60
+
 	return app
+}
+
+func (a *Application) buildMenu() {
+	ffVer, ferr := a.ffmpeg.Version()
+
+	a.mAbout = systray.AddMenuItem("About", "")
+	a.mFFMpeg = systray.AddMenuItem("FFmpeg", "")
+	a.mFFMpegInstall = systray.AddMenuItem("FFmpeg install", "")
+
+	if ferr == nil {
+		a.mFFMpeg.SetTitle(fmt.Sprintf("FFmpeg v%s", ffVer))
+
+		a.mFPS = a.mFFMpeg.AddSubMenuItem("FPS", "")
+		a.m60FPS = a.mFPS.AddSubMenuItemCheckbox("60 FPS", "", true)
+		a.m30FPS = a.mFPS.AddSubMenuItemCheckbox("30 FPS", "", false)
+
+		a.mFFMpegAbout = a.mFFMpeg.AddSubMenuItem("About", "")
+
+		a.mFFMpeg.Show()
+		a.mFFMpegInstall.Hide()
+		systray.AddSeparator()
+		a.mCapture = systray.AddMenuItem("Capture", "")
+	} else {
+		a.mFFMpeg.Hide()
+		a.mFFMpegInstall.Show()
+	}
+	systray.AddSeparator()
+	a.mQuit = systray.AddMenuItem("Quit", "")
+}
+
+func (a *Application) handleMenuActions() {
+	for {
+		select {
+		case <-a.mFFMpegAbout.ClickedCh:
+			fmt.Println("About ffmpeg")
+		case <-a.mAbout.ClickedCh:
+			fmt.Println("About")
+		case <-a.mQuit.ClickedCh:
+			systray.Quit()
+		//
+		case <-a.m60FPS.ClickedCh:
+			a.fps = 60
+			a.m60FPS.Check()
+			a.m30FPS.Uncheck()
+		case <-a.m30FPS.ClickedCh:
+			a.fps = 30
+			a.m30FPS.Check()
+			a.m60FPS.Uncheck()
+		//
+		case <-a.mCapture.ClickedCh:
+			if !capture.IsStarted() {
+				if a.captureStart() != nil {
+				} else {
+					a.mCapture.SetTitle("Stop")
+				}
+			} else {
+				a.mCapture.SetTitle("Capture")
+				a.captureStop()
+			}
+		case <-a.mFFMpegInstall.ClickedCh:
+			fmt.Println("GoTo ffmpeg")
+		}
+	}
 }
 
 func (a *Application) trayOnReady() {
 	systray.SetIcon(icon)
 	systray.SetTitle("")
 	systray.SetTooltip("Screen video capture")
-	//
-	ffVer, ferr := a.ffmpeg.Version()
-	mAbout := systray.AddMenuItem("About", "")
-	mFFmpeg := systray.AddMenuItem("Install ffmpeg", "")
-	if ferr == nil {
-		mFFmpeg.SetTitle(fmt.Sprintf("FFmpeg v%s", ffVer))
-	}
-
-	systray.AddSeparator()
-	mCapture := systray.AddMenuItem("Capture", "")
-	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("Quit", "")
-	//
-
-	// Actions
-	go func() {
-		for {
-			select {
-			case <-mAbout.ClickedCh:
-				fmt.Println("About")
-			case <-mQuit.ClickedCh:
-				systray.Quit()
-			case <-mCapture.ClickedCh:
-				if !capture.IsStarted() {
-					mCapture.SetTitle("Stop")
-					a.captureStart()
-				} else {
-					mCapture.SetTitle("Capture")
-					a.captureStop()
-				}
-			case <-mFFmpeg.ClickedCh:
-				if ferr != nil {
-					fmt.Println("GoTo install ffmpeg")
-				} else {
-					fmt.Println("GoTo ffmpeg")
-				}
-			}
-		}
-	}()
+	a.buildMenu()
+	go a.handleMenuActions()
 }
 
 func (a *Application) trayOnExit() {
@@ -73,43 +110,30 @@ func (a *Application) trayOnExit() {
 }
 
 func (a *Application) captureStop() {
+	systray.SetIcon(icon)
 	capture.CaptureStop()
 	a.ffmpeg.Stop()
 }
 
-var fps int
-var tstart time.Time
+func (a *Application) captureStart() error {
+	fn := fmt.Sprintf("ScreenCapture_%s.mov", time.Now().Format("01_01_2006_15_04_05"))
+	fmt.Println(fn)
+	err := a.ffmpeg.Record(a.display.Width, a.display.Height, fn)
+	if err != nil {
+		return err
+	}
 
-func (a *Application) captureStart() {
-	tstart = time.Now()
-	fps = 0
-
-	a.ffmpeg.Record(a.display.Width, a.display.Height, "out.mov")
-	capture.CaptureStart(func(pix []uint8, time uint64) {
-		fps = 1000 / int(time/1000000)
+	err = capture.CaptureStart(func(pix []uint8, time uint64) {
 		a.ffmpeg.Write(pix)
 	}, capture.Options{Width: a.display.Width, Height: a.display.Height})
+	if err != nil {
+		a.ffmpeg.Stop()
+		return err
+	}
 
-	ticker := time.NewTicker(time.Second)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				systray.SetTitle(fmt.Sprintf("%d FPS | %s", fps, fmtDuration(time.Since(tstart))))
-			}
-		}
-	}()
-	// ToDO : chan and errors
-}
+	systray.SetIcon(iconRecord)
 
-func fmtDuration(d time.Duration) string {
-	d = d.Round(time.Second)
-	h := d / time.Hour
-	d -= h * time.Hour
-	m := d / time.Minute
-	d -= h * time.Minute
-	s := d / time.Second
-	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+	return nil
 }
 
 func (a *Application) Exec() {
