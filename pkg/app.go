@@ -13,7 +13,7 @@ import (
 //go:embed assets/cam_white.png
 var icon []byte
 
-//go:embed assets/cam_white_record.png
+//go:embed assets/cam_white_rec.png
 var iconRecord []byte
 
 type Application struct {
