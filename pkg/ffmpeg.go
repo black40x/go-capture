@@ -7,13 +7,29 @@ import (
 	"io"
 	"os/exec"
 	"regexp"
+	"time"
+)
+
+type RecordStatus uint
+
+const (
+	StatusStopped RecordStatus = iota
+	StatusRecord
+	StatusEmpty
 )
 
 type FFMpeg struct {
 	cmd     *exec.Cmd
 	chWrite chan []uint8
+	buffer  []uint8
 	stdin   io.WriteCloser
-	stop    bool
+	status  chan RecordStatus
+}
+
+func NewFFMpeg() *FFMpeg {
+	f := new(FFMpeg)
+	f.status = make(chan RecordStatus, 1)
+	return f
 }
 
 func (m *FFMpeg) Version() (string, error) {
@@ -29,6 +45,40 @@ func (m *FFMpeg) Version() (string, error) {
 	return "", errors.New("can't get ffmpeg version")
 }
 
+func (m *FFMpeg) statusEmpty() {
+	m.status <- StatusEmpty
+}
+
+func (m *FFMpeg) statusRecord() {
+	m.status <- StatusRecord
+}
+
+func (m *FFMpeg) statusStopped() {
+	m.status <- StatusStopped
+}
+
+func (m *FFMpeg) handleStatus() {
+	for {
+		select {
+		case status := <-m.status:
+			switch status {
+			case StatusRecord:
+				// onStart
+			case StatusStopped:
+				// Wait for frames
+				for len(m.chWrite) > 0 {
+					time.Sleep(time.Second)
+				}
+				// Close output
+				m.stdin.Close()
+			case StatusEmpty:
+				// onStop
+				return
+			}
+		}
+	}
+}
+
 func (m *FFMpeg) Write(pix []uint8) {
 	m.chWrite <- pix
 }
@@ -36,13 +86,14 @@ func (m *FFMpeg) Write(pix []uint8) {
 func (m *FFMpeg) Record(width, height int, out string) error {
 	m.cmd = exec.Command("ffmpeg",
 		"-f", "rawvideo",
+		"-framerate", "60",
 		"-pix_fmt", "bgra",
 		"-video_size", fmt.Sprintf("%vx%v", width, height),
 		"-i", "-",
 		"-vcodec", "mpeg4",
 		"-q:v", "0",
 		"-quality", "best",
-		"-r", "30",
+		"-r", "60",
 		"-crf", "0",
 		out,
 	)
@@ -53,37 +104,59 @@ func (m *FFMpeg) Record(width, height int, out string) error {
 		return err
 	}
 	m.chWrite = make(chan []uint8, 1)
-	m.stop = false
 
 	go func() {
 		out, _ := m.cmd.CombinedOutput()
 		fmt.Printf("FFMPEG output:\n%v\n", string(out))
+		m.statusEmpty()
 	}()
 
+	go m.handleStatus()
+	go m.handleAsyncWriter(width, height)
 	go m.handleFrames(width, height)
+
+	m.statusRecord()
 
 	return nil
 }
 
-func (m FFMpeg) handleFrames(width, height int) {
+func (m *FFMpeg) handleAsyncWriter(width, height int) {
 	buf := new(bytes.Buffer)
+	tick := time.Tick(16 * time.Millisecond)
 	for {
 		select {
-		case pix := <-m.chWrite:
-			stride := len(pix) / height
+		case <-tick:
+			stride := len(m.buffer) / height
 			rowLen := 4 * width
-			for i := 0; i < len(pix); i += stride {
-				if _, err := m.stdin.Write(pix[i : i+rowLen]); err != nil {
+			for i := 0; i < len(m.buffer); i += stride {
+				if _, err := m.stdin.Write(m.buffer[i : i+rowLen]); err != nil {
 					break
 				}
 			}
 			buf.Reset()
+			// fmt.Print(".")
+		}
+	}
+}
+
+func (m *FFMpeg) handleFrames(width, height int) {
+	// buf := new(bytes.Buffer)
+	for {
+		select {
+		case pix := <-m.chWrite:
+			m.buffer = pix
+			//stride := len(pix) / height
+			//rowLen := 4 * width
+			//for i := 0; i < len(pix); i += stride {
+			//	if _, err := m.stdin.Write(pix[i : i+rowLen]); err != nil {
+			//		break
+			//	}
+			//}
+			// buf.Reset()
 		}
 	}
 }
 
 func (m *FFMpeg) Stop() {
-	fmt.Print("chan", len(m.chWrite))
-	m.stop = true
-	m.stdin.Close()
+	m.statusStopped()
 }

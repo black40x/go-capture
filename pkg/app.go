@@ -18,7 +18,7 @@ type Application struct {
 
 func NewApplication() *Application {
 	app := new(Application)
-	app.ffmpeg = new(FFMpeg)
+	app.ffmpeg = NewFFMpeg()
 	app.display = capture.GetDisplayRect()
 	return app
 }
