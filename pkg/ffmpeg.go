@@ -7,6 +7,7 @@ import (
 	"io"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -92,14 +93,14 @@ func (m *FFMpeg) Write(pix []uint8) {
 func (m *FFMpeg) Record(width, height int, out string) error {
 	m.cmd = exec.Command("ffmpeg",
 		"-f", "rawvideo",
-		"-framerate", "60",
+		"-framerate", strconv.Itoa(m.fps),
 		"-pix_fmt", "bgra",
 		"-video_size", fmt.Sprintf("%vx%v", width, height),
 		"-i", "-",
 		"-vcodec", "mpeg4",
 		"-q:v", "1",
-		"-r", "60",
-		"-crf", "22",
+		"-r", strconv.Itoa(m.fps),
+		// "-crf", "22",
 		out,
 	)
 
@@ -127,7 +128,7 @@ func (m *FFMpeg) Record(width, height int, out string) error {
 
 func (m *FFMpeg) handleAsyncWriter(width, height int) {
 	buf := new(bytes.Buffer)
-	tick := time.Tick(16 * time.Millisecond)
+	tick := time.Tick(time.Duration(1000/m.fps) * time.Millisecond)
 	for {
 		if m.work == false {
 			return

@@ -97,9 +97,11 @@ func (a *Application) handleMenuActions() {
 				if a.captureStart() != nil {
 				} else {
 					a.mCapture.SetTitle("Stop")
+					a.mFPS.Disable()
 				}
 			} else {
 				a.mCapture.SetTitle("Capture")
+				a.mFPS.Enable()
 				a.captureStop()
 			}
 		}
