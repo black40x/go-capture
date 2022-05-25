@@ -46,8 +46,9 @@ func (m *FFMpeg) Version() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	re := regexp.MustCompile("ffmpeg version ([0-9.]+)")
+	re := regexp.MustCompile("ffmpeg version ([A-z0-9.-]+)")
 	match := re.FindStringSubmatch(string(out))
+	fmt.Println(match)
 	if len(match) >= 2 {
 		return match[1], nil
 	}

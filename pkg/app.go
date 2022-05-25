@@ -3,12 +3,13 @@ package pkg
 import (
 	_ "embed"
 	"fmt"
-	"github.com/black40x/go-capture/pkg/capture"
-	"github.com/getlantern/systray"
 	"os"
 	"os/exec"
 	"runtime"
 	"time"
+
+	"github.com/black40x/go-capture/pkg/capture"
+	"github.com/getlantern/systray"
 )
 
 //go:embed assets/cam_white.png
@@ -16,6 +17,12 @@ var icon []byte
 
 //go:embed assets/cam_white_rec.png
 var iconRecord []byte
+
+//go:embed assets/cam_white_rec.ico
+var iconIco []byte
+
+//go:embed assets/cam_white_rec.ico
+var iconRecordIco []byte
 
 type Application struct {
 	ffmpeg  *FFMpeg
@@ -50,21 +57,20 @@ func (a *Application) buildMenu() {
 	a.mAbout = systray.AddMenuItem("About", "")
 	a.mFFMpeg = systray.AddMenuItem("FFmpeg", "")
 	a.mFFMpegInstall = systray.AddMenuItem("FFmpeg install", "")
+	a.mFFMpeg.SetTitle(fmt.Sprintf("FFmpeg v%s", ffVer))
+
+	a.mFPS = a.mFFMpeg.AddSubMenuItem("FPS", "")
+	a.m60FPS = a.mFPS.AddSubMenuItemCheckbox("60 FPS", "", true)
+	a.m30FPS = a.mFPS.AddSubMenuItemCheckbox("30 FPS", "", false)
+	systray.AddSeparator()
+	a.mCapture = systray.AddMenuItem("Capture", "")
+	a.mFFMpegAbout = a.mFFMpeg.AddSubMenuItem("About", "")
 
 	if ferr == nil {
-		a.mFFMpeg.SetTitle(fmt.Sprintf("FFmpeg v%s", ffVer))
-
-		a.mFPS = a.mFFMpeg.AddSubMenuItem("FPS", "")
-		a.m60FPS = a.mFPS.AddSubMenuItemCheckbox("60 FPS", "", true)
-		a.m30FPS = a.mFPS.AddSubMenuItemCheckbox("30 FPS", "", false)
-
-		a.mFFMpegAbout = a.mFFMpeg.AddSubMenuItem("About", "")
-
 		a.mFFMpeg.Show()
 		a.mFFMpegInstall.Hide()
-		systray.AddSeparator()
-		a.mCapture = systray.AddMenuItem("Capture", "")
 	} else {
+		a.mCapture.Hide()
 		a.mFFMpeg.Hide()
 		a.mFFMpegInstall.Show()
 	}
@@ -110,7 +116,11 @@ func (a *Application) handleMenuActions() {
 }
 
 func (a *Application) trayOnReady() {
-	systray.SetIcon(icon)
+	if runtime.GOOS == "windows" {
+		systray.SetIcon(iconIco)
+	} else {
+		systray.SetIcon(icon)
+	}
 	systray.SetTitle("")
 	systray.SetTooltip("Screen video capture")
 	a.buildMenu()
@@ -122,7 +132,11 @@ func (a *Application) trayOnExit() {
 }
 
 func (a *Application) captureStop() {
-	systray.SetIcon(icon)
+	if runtime.GOOS == "windows" {
+		systray.SetIcon(iconIco)
+	} else {
+		systray.SetIcon(icon)
+	}
 	capture.CaptureStop()
 	a.ffmpeg.Stop()
 }
@@ -144,7 +158,11 @@ func (a *Application) captureStart() error {
 		return err
 	}
 
-	systray.SetIcon(iconRecord)
+	if runtime.GOOS == "windows" {
+		systray.SetIcon(iconRecordIco)
+	} else {
+		systray.SetIcon(iconRecord)
+	}
 
 	return nil
 }
