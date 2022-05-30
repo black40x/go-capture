@@ -1,5 +1,7 @@
 # go-capture
 
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/dmvsk)
+
 Example of desktop video capture using ffmpeg with GOLang.
 
 ![](screenshots/tray.png)
